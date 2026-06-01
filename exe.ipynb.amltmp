@@ -1,0 +1,372 @@
+{
+  "cells": [
+    {
+      "cell_type": "code",
+      "source": [
+        "from azure.identity import DefaultAzureCredential\n",
+        "from azure.ai.ml import MLClient , command , Input\n",
+        "from azure.ai.ml.entities import Data , Environment\n",
+        "from azure.ai.ml.constants import AssetTypes\n",
+        "from azure.ai.ml.entities import ComputeInstance\n",
+        "from azure.ai.ml.entities import AmlCompute\n",
+        "\n",
+        "from datetime import datetime\n",
+        "from zoneinfo import ZoneInfo"
+      ],
+      "outputs": [],
+      "execution_count": 1,
+      "metadata": {
+        "gather": {
+          "logged": 1779438675252
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "# Connect mlClient\n",
+        "credential = DefaultAzureCredential()\n",
+        "\n",
+        "ml_client = MLClient.from_config(\n",
+        "    credential=DefaultAzureCredential()\n",
+        ")\n"
+      ],
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": "Found the config file in: /config.json\nClass DeploymentTemplateOperations: This is an experimental class, and may change at any time. Please see https://aka.ms/azuremlexperimental for more information.\n"
+        }
+      ],
+      "execution_count": 2,
+      "metadata": {
+        "gather": {
+          "logged": 1779438676749
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "ml_client = MLClient(\n",
+        "    credential=credential,\n",
+        "    subscription_id = ml_client.subscription_id,\n",
+        "    resource_group_name = ml_client.resource_group_name,\n",
+        "    workspace_name = ml_client.workspace_name\n",
+        ")"
+      ],
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": "Overriding of current TracerProvider is not allowed\nOverriding of current LoggerProvider is not allowed\nOverriding of current MeterProvider is not allowed\nAttempting to instrument while already instrumented\nAttempting to instrument while already instrumented\nAttempting to instrument while already instrumented\nAttempting to instrument while already instrumented\nAttempting to instrument while already instrumented\n"
+        }
+      ],
+      "execution_count": 3,
+      "metadata": {
+        "gather": {
+          "logged": 1779438676972
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "outputs": [],
+      "execution_count": null,
+      "metadata": {}
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "# Create environment\n",
+        "env = Environment(\n",
+        "    name=\"Flight-env\",\n",
+        "    description=\"Custom AML environment\",\n",
+        "    conda_file=\"Environment.yml\",\n",
+        "    image=\"mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest\",\n",
+        "    # version = '1'\n",
+        ")"
+      ],
+      "outputs": [],
+      "execution_count": 4,
+      "metadata": {
+        "gather": {
+          "logged": 1779438677127
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "\n",
+        "# Register environment\n",
+        "ml_client.environments.create_or_update(env)\n",
+        "\n",
+        "# print(\"Environment created successfully\")"
+      ],
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "execution_count": 5,
+          "data": {
+            "text/plain": "Environment({'arm_type': 'environment_version', 'latest_version': None, 'image': 'mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest', 'intellectual_property': None, 'is_anonymous': False, 'auto_increment_version': False, 'auto_delete_setting': None, 'name': 'Flight-env', 'description': 'Custom AML environment', 'tags': {}, 'properties': {'azureml.labels': 'latest'}, 'print_as_yaml': False, 'id': '/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/environments/Flight-env/versions/2', 'Resource__source_path': '', 'base_path': '/mnt/batch/tasks/shared/LS_root/mounts/clusters/cpu432/code/Users/brenjoelsikha/ProjectFlightData', 'creation_context': <azure.ai.ml.entities._system_data.SystemData object at 0x7aa3b5d0d780>, 'serialize': <msrest.serialization.Serializer object at 0x7aa3b5d0f970>, 'version': '2', 'conda_file': {'channels': ['conda-forge'], 'dependencies': ['python=3.10', 'pip', {'pip': ['pandas', 'scikit-learn', 'numpy', 'azureml-mlflow', 'mltable']}], 'name': 'aml-env'}, 'build': None, 'inference_config': None, 'os_type': 'Linux', 'conda_file_path': None, 'path': None, 'datastore': None, 'upload_hash': None, 'translated_conda_file': '{\\n  \"channels\": [\\n    \"conda-forge\"\\n  ],\\n  \"dependencies\": [\\n    \"python=3.10\",\\n    \"pip\",\\n    {\\n      \"pip\": [\\n        \"pandas\",\\n        \"scikit-learn\",\\n        \"numpy\",\\n        \"azureml-mlflow\",\\n        \"mltable\"\\n      ]\\n    }\\n  ],\\n  \"name\": \"aml-env\"\\n}'})"
+          },
+          "metadata": {}
+        }
+      ],
+      "execution_count": 5,
+      "metadata": {
+        "gather": {
+          "logged": 1779438677755
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "DataStore_name = 'flightsdatastrore'\n",
+        "Blob_input = 'flightdelaydata.csv'\n",
+        "\n",
+        "# get data set\n",
+        "datastore = ml_client.datastores.get(DataStore_name)\n",
+        "print(datastore)\n",
+        "path = f\"azureml://subscriptions/{ml_client.subscription_id}/resourcegroups/{ml_client.resource_group_name}/workspaces/{ml_client.workspace_name}/datastores/{datastore.name}/paths/{Blob_input}\"\n",
+        "\n",
+        "\n",
+        "# # Register the original data set  URI FILE\n",
+        "# raw_data = Data(\n",
+        "#     path=path,\n",
+        "#     type=AssetTypes.URI_FILE,\n",
+        "#     name=DataAsset_Name,\n",
+        "#     # version=\"Main\",\n",
+        "#     description=\"Raw flight delay dataset\"\n",
+        "# )\n",
+        "\n",
+        "# ml_client.data.create_or_update(raw_data)"
+      ],
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "account_name: dp100n\ncontainer_name: flightcontainer\ncredentials: {}\nendpoint: core.windows.net\nid: /subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/datastores/flightsdatastrore\nname: flightsdatastrore\nprotocol: https\ntags: {}\ntype: azure_blob\n\n"
+        }
+      ],
+      "execution_count": 6,
+      "metadata": {
+        "gather": {
+          "logged": 1779438678301
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# # Create a compute instance\n",
+        "\n",
+        "# compute_instance_name = \"test-my-compute-instance\"\n",
+        "# compute_instance = ComputeInstance(\n",
+        "#     name=compute_instance_name ,\n",
+        "#     size=\"STANDARD_DS3_V2\",\n",
+        "# )\n",
+        "\n",
+        "# ml_client.begin_create_or_update(compute_instance).result()\n",
+        "\n",
+        "# print(\"Compute instance created\")"
+      ],
+      "outputs": [],
+      "execution_count": 7,
+      "metadata": {
+        "gather": {
+          "logged": 1779438678466
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "# Create compute cluster \n",
+        "compute_cluster_name = 'testCluster'\n",
+        "cpu_cluster = AmlCompute(\n",
+        "    name=compute_cluster_name,\n",
+        "    type=\"amlcompute\",\n",
+        "    size=\"STANDARD_DS2_V2\",\n",
+        "    min_instances=0,\n",
+        "    max_instances=1,\n",
+        "    idle_time_before_scale_down=120,\n",
+        ")\n",
+        "\n",
+        "ml_client.begin_create_or_update(cpu_cluster).result()\n",
+        "\n",
+        "print(\"Compute cluster created\")"
+      ],
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Compute cluster created\n"
+        }
+      ],
+      "execution_count": 8,
+      "metadata": {
+        "gather": {
+          "logged": 1779438710825
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def Start_run(l2):\n",
+        "    ist_time = datetime.now(ZoneInfo(\"Asia/Kolkata\"))\n",
+        "    time = {ist_time.strftime('%Y%m%d-%H%M%S')}\n",
+        "\n",
+        "    job = command(\n",
+        "        code=\"./src\",\n",
+        "        command= f\"python FlightDelay.py --input_data ${{{{inputs.flight_data}}}} --l2_rate {l2}\",\n",
+        "        inputs={\n",
+        "            \"flight_data\": Input(\n",
+        "                type = AssetTypes.URI_FILE,\n",
+        "                path = path\n",
+        "            )\n",
+        "        },\n",
+        "        environment=\"Flight-env@latest\", # environment=\"Flight-env:1\",\n",
+        "        compute=compute_cluster_name,\n",
+        "        display_name=f\"Flight Delay Data Training Job  {ist_time.strftime('%Y%m%d-%H%M%S')}\",\n",
+        "        experiment_name= 'Mini_Cluster_Large_L2_Rates'\n",
+        "    )\n",
+        "    return job\n"
+      ],
+      "outputs": [],
+      "execution_count": 9,
+      "metadata": {
+        "gather": {
+          "logged": 1779438710965
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "l2_rates = [0, 1, 100, 10000, 1000000]\n",
+        "for i in l2_rates:\n",
+        "    job = Start_run(i)\n",
+        "    returned_job = ml_client.jobs.create_or_update(job)\n",
+        "    ml_client.jobs.stream(returned_job.name)"
+      ],
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": "Class AutoDeleteSettingSchema: This is an experimental class, and may change at any time. Please see https://aka.ms/azuremlexperimental for more information.\nClass AutoDeleteConditionSchema: This is an experimental class, and may change at any time. Please see https://aka.ms/azuremlexperimental for more information.\nClass BaseAutoDeleteSettingSchema: This is an experimental class, and may change at any time. Please see https://aka.ms/azuremlexperimental for more information.\nClass IntellectualPropertySchema: This is an experimental class, and may change at any time. Please see https://aka.ms/azuremlexperimental for more information.\nClass ProtectionLevelSchema: This is an experimental class, and may change at any time. Please see https://aka.ms/azuremlexperimental for more information.\nClass BaseIntellectualPropertySchema: This is an experimental class, and may change at any time. Please see https://aka.ms/azuremlexperimental for more information.\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "RunId: yellow_pocket_1q1v32v4ty\nWeb View: https://ml.azure.com/runs/yellow_pocket_1q1v32v4ty?wsid=/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourcegroups/dp-100_trail/workspaces/dp-100\n\nStreaming user_logs/std_log.txt\n===============================\n\nInput path: /mnt/azureml/cr/j/f45a6f94c1d041f380ac1a668e1174ba/cap/data-capability/wd/INPUT_flight_data/flightdelaydata.csv\n🏃 View run Flight Delay Data Training Job  20260522-140152 at: https://eastus2.api.azureml.ms/mlflow/v2.0/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/#/experiments/0da6c186-a5ce-417c-84d1-55422250e23d/runs/yellow_pocket_1q1v32v4ty\n🧪 View experiment at: https://eastus2.api.azureml.ms/mlflow/v2.0/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/#/experiments/0da6c186-a5ce-417c-84d1-55422250e23d\n\nExecution Summary\n=================\nRunId: yellow_pocket_1q1v32v4ty\nWeb View: https://ml.azure.com/runs/yellow_pocket_1q1v32v4ty?wsid=/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourcegroups/dp-100_trail/workspaces/dp-100\n\nRunId: sharp_window_0jtc0t5njb\nWeb View: https://ml.azure.com/runs/sharp_window_0jtc0t5njb?wsid=/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourcegroups/dp-100_trail/workspaces/dp-100\n\nStreaming user_logs/std_log.txt\n===============================\n\nInput path: /mnt/azureml/cr/j/c37032070de342748fe6d0e1a9ef32fe/cap/data-capability/wd/INPUT_flight_data/flightdelaydata.csv\n🏃 View run Flight Delay Data Training Job  20260522-140943 at: https://eastus2.api.azureml.ms/mlflow/v2.0/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/#/experiments/0da6c186-a5ce-417c-84d1-55422250e23d/runs/sharp_window_0jtc0t5njb\n🧪 View experiment at: https://eastus2.api.azureml.ms/mlflow/v2.0/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/#/experiments/0da6c186-a5ce-417c-84d1-55422250e23d\n\nExecution Summary\n=================\nRunId: sharp_window_0jtc0t5njb\nWeb View: https://ml.azure.com/runs/sharp_window_0jtc0t5njb?wsid=/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourcegroups/dp-100_trail/workspaces/dp-100\n\nRunId: modest_yam_rypbmyyyx1\nWeb View: https://ml.azure.com/runs/modest_yam_rypbmyyyx1?wsid=/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourcegroups/dp-100_trail/workspaces/dp-100\n\nStreaming user_logs/std_log.txt\n===============================\n\nInput path: /mnt/azureml/cr/j/535c7b94aa6c4f4a9920607be5434153/cap/data-capability/wd/INPUT_flight_data/flightdelaydata.csv\n🏃 View run Flight Delay Data Training Job  20260522-141037 at: https://eastus2.api.azureml.ms/mlflow/v2.0/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/#/experiments/0da6c186-a5ce-417c-84d1-55422250e23d/runs/modest_yam_rypbmyyyx1\n🧪 View experiment at: https://eastus2.api.azureml.ms/mlflow/v2.0/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/#/experiments/0da6c186-a5ce-417c-84d1-55422250e23d\n\nExecution Summary\n=================\nRunId: modest_yam_rypbmyyyx1\nWeb View: https://ml.azure.com/runs/modest_yam_rypbmyyyx1?wsid=/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourcegroups/dp-100_trail/workspaces/dp-100\n\nRunId: joyful_wolf_xpzggdk87w\nWeb View: https://ml.azure.com/runs/joyful_wolf_xpzggdk87w?wsid=/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourcegroups/dp-100_trail/workspaces/dp-100\n\nStreaming user_logs/std_log.txt\n===============================\n\nInput path: /mnt/azureml/cr/j/3f2588f42bac4479b3cda67e1889d4c2/cap/data-capability/wd/INPUT_flight_data/flightdelaydata.csv\n🏃 View run Flight Delay Data Training Job  20260522-141125 at: https://eastus2.api.azureml.ms/mlflow/v2.0/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/#/experiments/0da6c186-a5ce-417c-84d1-55422250e23d/runs/joyful_wolf_xpzggdk87w\n🧪 View experiment at: https://eastus2.api.azureml.ms/mlflow/v2.0/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/#/experiments/0da6c186-a5ce-417c-84d1-55422250e23d\n\nExecution Summary\n=================\nRunId: joyful_wolf_xpzggdk87w\nWeb View: https://ml.azure.com/runs/joyful_wolf_xpzggdk87w?wsid=/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourcegroups/dp-100_trail/workspaces/dp-100\n\nRunId: boring_parrot_rh1jswww4s\nWeb View: https://ml.azure.com/runs/boring_parrot_rh1jswww4s?wsid=/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourcegroups/dp-100_trail/workspaces/dp-100\n\nStreaming user_logs/std_log.txt\n===============================\n\nInput path: /mnt/azureml/cr/j/0c1d8bf5648a4fb587a8056f4d84cbe0/cap/data-capability/wd/INPUT_flight_data/flightdelaydata.csv\n🏃 View run Flight Delay Data Training Job  20260522-141224 at: https://eastus2.api.azureml.ms/mlflow/v2.0/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/#/experiments/0da6c186-a5ce-417c-84d1-55422250e23d/runs/boring_parrot_rh1jswww4s\n🧪 View experiment at: https://eastus2.api.azureml.ms/mlflow/v2.0/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourceGroups/dp-100_trail/providers/Microsoft.MachineLearningServices/workspaces/dp-100/#/experiments/0da6c186-a5ce-417c-84d1-55422250e23d\n\nExecution Summary\n=================\nRunId: boring_parrot_rh1jswww4s\nWeb View: https://ml.azure.com/runs/boring_parrot_rh1jswww4s?wsid=/subscriptions/49297e8f-2e51-410c-aee9-69db39628913/resourcegroups/dp-100_trail/workspaces/dp-100\n\n"
+        }
+      ],
+      "execution_count": 10,
+      "metadata": {
+        "gather": {
+          "logged": 1779439394299
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# # Stop compute instance\n",
+        "# ml_client.compute.begin_stop(compute_instance_name).wait()\n",
+        "\n",
+        "# print(\"Stopped\")"
+      ],
+      "outputs": [],
+      "execution_count": 11,
+      "metadata": {
+        "gather": {
+          "logged": 1779439394571
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# # Delete compute instance\n",
+        "# ml_client.compute.begin_delete(compute_instance_name).wait()\n",
+        "\n",
+        "# print(\"Compute instance deleted\")"
+      ],
+      "outputs": [],
+      "execution_count": 12,
+      "metadata": {
+        "gather": {
+          "logged": 1779439394840
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Delete Compute Cluster \n",
+        "ml_client.compute.begin_delete(compute_cluster_name).wait()"
+      ],
+      "outputs": [],
+      "execution_count": 13,
+      "metadata": {
+        "gather": {
+          "logged": 1779439609334
+        }
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "outputs": [],
+      "execution_count": null,
+      "metadata": {}
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "name": "python310-sdkv2",
+      "language": "python",
+      "display_name": "Python 3.10 - SDK v2"
+    },
+    "language_info": {
+      "name": "python",
+      "version": "3.10.19",
+      "mimetype": "text/x-python",
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "pygments_lexer": "ipython3",
+      "nbconvert_exporter": "python",
+      "file_extension": ".py"
+    },
+    "microsoft": {
+      "ms_spell_check": {
+        "ms_spell_check_language": "en"
+      },
+      "host": {
+        "AzureML": {
+          "notebookHasBeenCompleted": true
+        }
+      }
+    },
+    "kernel_info": {
+      "name": "python310-sdkv2"
+    },
+    "nteract": {
+      "version": "nteract-front-end@1.0.0"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 2
+}

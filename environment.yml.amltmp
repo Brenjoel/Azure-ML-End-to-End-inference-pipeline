@@ -1,0 +1,14 @@
+name: aml-env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - pandas
+      - scikit-learn
+      - numpy
+      - azureml-mlflow
+      - mltable
+      - joblib
+      - azureml-defaults

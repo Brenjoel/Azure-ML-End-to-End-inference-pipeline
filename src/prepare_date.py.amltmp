@@ -1,0 +1,73 @@
+
+# import statements
+# from azureml.core import Workspace , Datastore, Dataset, Run , Experiment
+
+
+
+import pandas as pd
+import numpy as np
+import argparse
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import Ridge
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import confusion_matrix , accuracy_score, mean_squared_error
+
+import mlflow
+import mltable
+
+import os
+import joblib
+
+# Parse AML input argument
+parser = argparse.ArgumentParser()
+
+parser.add_argument("--input_data", type=str, dest= 'raw_data')
+parser.add_argument("--prepped_data", type=str, dest= 'prepped_data' , default = 'prepped_data')
+
+# parser.add_argument("--l2_rate", type=float)
+
+args = parser.parse_args()
+
+save_folder = args.prepped_data
+
+# Load MLTable
+# tbl = mltable.load(args.raw_data)
+
+# Convert to pandas dataframe
+# df = tbl.to_pandas_dataframe()
+df = pd.read_csv(args.raw_data)
+
+# Log metrics
+mlflow.log_metric("Count Before", df.shape[0])
+
+df["DepDelay"] = df["DepDelay"].fillna(0)
+df["DepDel15"] = df["DepDel15"].fillna(0)
+df['ArrDelay'] = df["ArrDelay"].fillna(0)
+
+df= df[df['ArrDelay'] < 180]
+
+
+# le = LabelEncoder()
+# df['Carrier'] = le.fit_transform(df['Carrier'])
+
+# encoder_path = os.path.join(save_folder, "carrier_encoder.pkl")
+# joblib.dump(le, encoder_path)
+
+
+# Log metrics
+mlflow.log_metric("Count After", df.shape[0])
+
+# save data
+os.makedirs(save_folder, exist_ok = True)
+save_path = os.path.join(save_folder , 'prepped_data.csv')
+df.to_csv(save_path , index = False , header = True)
+
+
+# Run will automatically gets completed once the script execution is done  and not mandatory to end from code
+# Complete run
+mlflow.end_run()
+
+
+
+
